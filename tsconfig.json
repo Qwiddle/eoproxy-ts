@@ -1,14 +1,17 @@
 {
   "compilerOptions": {
-     "target": "es2016",
-     "module": "commonjs",
+     "target": "ES2020",
+     "module": "NodeNext",
+     "moduleResolution": "node",
      "rootDir": "./",
      "resolveJsonModule": true, /* in case you are importing JSON files */
-     "outDir": "./build",
+     "outDir": "./dist",
      "esModuleInterop": true,
      "forceConsistentCasingInFileNames": true,
      "strict": true,
-     "noImplicitAny": true,
      "skipLibCheck": true,
-  }
+  },
+  "include": [
+    "src/**/*"
+  ]
 }

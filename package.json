@@ -4,7 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "tsc",
+    "dev": "nodemon --watch ./src --exec ts-node-esm ./src/index.ts PORT=8080",
+    "start": "node ./dist/src/index.js"
   },
   "keywords": [],
   "author": "",
@@ -12,5 +15,11 @@
   "devDependencies": {
     "@types/node": "^20.4.1",
     "typescript": "^5.1.6"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1",
+    "eolib": "^1.0.0-rc.6",
+    "nodemon": "^3.0.1",
+    "ts-node": "^10.9.1"
   }
 }
