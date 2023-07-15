@@ -11,6 +11,7 @@ export class EOClient {
   port: number
   packetProcessor: PacketProcessor
   socket: Socket
+  warpBackPacket: Buffer | null;
 
   constructor(packetProcessor: PacketProcessor) {
     this.client = new Socket();
@@ -18,6 +19,7 @@ export class EOClient {
     this.packetProcessor = packetProcessor;
     this.port = Number(process.env.CLIENT_PORT) ?? 8078;
     this.host = process.env.CLIENT_HOST ?? 'game.endless-online.com';
+    this.warpBackPacket = null;
   }
 
   connect() {
@@ -68,10 +70,15 @@ export class EOClient {
       const packetData = new Packet(packet.buffer.slice(2, packet.buffer.length));
       const seq1 = packetData.reader.getShort();
       const seq2 = packetData.reader.getChar();
-
       const sequenceStart = seq1 - seq2;
-
       this.packetProcessor.setSequence(sequenceStart)
+    }
+
+    if (
+      packet.buffer[0] === PacketAction.Request
+      && packet.buffer[1] === PacketFamily.Warp
+    ) {
+      this.warpBackPacket = packet.buffer;
     }
   }
 

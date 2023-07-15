@@ -1,3 +1,5 @@
+import { encodeNumber } from "./packet-utils";
+
 export class PacketProcessor {
   #challenge = -1;
   #serverEncVal = -1;
@@ -29,7 +31,7 @@ export class PacketProcessor {
     }
 
     this.#serverEncVal = serverEncVal;
-    this.#clientEncVal = clientEncVal += this.#challenge % 11 ;
+    this.#clientEncVal = clientEncVal += this.#challenge % 11;
   }
 
   setSequence(sequenceStart: number) {
@@ -38,7 +40,9 @@ export class PacketProcessor {
   }
 
   nextSequence() {
-    this.#sequenceCounter = (this.#sequenceCounter + 1) % 10;
+    if(++this.#sequenceCounter > 10) {
+      this.#sequenceCounter = 1;
+    }
     return this.#sequence + this.#sequenceCounter;
   }
 
@@ -68,5 +72,43 @@ export class PacketProcessor {
     }
 
     return Buffer.from(data);
+  }
+
+  encode(packet: Buffer, isClient: boolean) {
+    let data: Uint8Array = Uint8Array.from(packet);
+
+    const packetHeader = data.slice(0, 2);
+    const packetData = data.slice(2, data.length);
+    const packetWithLength = Uint8Array.from([...encodeNumber(packet.length), ...packet]);
+
+    if(data[0] == 255 && data[1] == 255) {
+      return Buffer.from(packetWithLength);
+    }
+
+    if(!this.hasEncryption()) {
+      throw new Error('Encryption parameters not set');
+    }
+
+    const packetWithoutSequence = packetData.slice(1, packetData.length);
+    const newPacket = isClient ? Uint8Array.from([...packetHeader, this.nextSequence(), ...packetWithoutSequence])
+      : Uint8Array.from([...packetHeader, ...packetData]);
+
+    data = newPacket;
+
+    const encVal = isClient ? this.#clientEncVal : this.#serverEncVal;
+
+    const encKeyTable = [
+      (i: number) => -(i + 0x74),
+      () => +Math.floor(encVal / 253),
+      () => -((encVal - 1) % 253),
+    ];
+
+    for (let i = 1; i < data.length; i++) {
+      let val = data[i - 1];
+      val = (val + encKeyTable[i % 3](i)) & 0xFF;
+      data[i - 1] = val;
+    }
+
+    return Buffer.from([...encodeNumber(data.length), ...data]);
   }
 }

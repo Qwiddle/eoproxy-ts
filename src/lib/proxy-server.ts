@@ -3,7 +3,7 @@ import { Socket } from 'node:net';
 import { EOClient } from './eo-client';
 import { PacketProcessor } from './packet/packet-processor';
 import { Packet } from './packet/packet';
-import { prettifyPacket } from './packet/packet-utils';
+import { encodeNumber, prettifyPacket } from './packet/packet-utils';
 import { PacketAction } from './packet/packet-action';
 import { PacketFamily } from './packet/packet-family'
 
@@ -13,12 +13,14 @@ export class ProxyServer {
   host: string
   packetProcessor: PacketProcessor
   socket: Socket = new Socket()
+  client: EOClient | null
 
   constructor(packetProcessor: PacketProcessor) {
     this.#server = new net.Server();
     this.port = Number(process.env.SERVER_PORT) ?? 8078;
     this.host = process.env.SERVER_HOST ?? '127.0.0.1';
     this.packetProcessor = packetProcessor;
+    this.client = null;
   }
 
   listen(onConnect: () => void, client: EOClient) {
@@ -31,6 +33,7 @@ export class ProxyServer {
       console.log('successfully connected.');
       this.socket = socket;
       client.socket = socket;
+      this.client = client;
 
       socket.on('data', (buffer: Buffer) => {
         this.handlePacket(buffer, client);
@@ -46,16 +49,18 @@ export class ProxyServer {
   handlePacket(buffer: Buffer, client: EOClient) {
     const rawData = buffer.slice(2, buffer.length);
     const decodedPacket = new Packet(this.packetProcessor.decode(rawData, true));
-    this.scrapePacket(decodedPacket);
+    const encodedPacket = this.packetProcessor.encode(decodedPacket.buffer, true);
+    this.client.client.write(encodedPacket);
+
+    this.scrapePacket(decodedPacket, client);
 
     const prettyBytes = prettifyPacket(decodedPacket.buffer);
+    const prettyBytes2 = prettifyPacket(encodedPacket);
     console.log(`[Client] ${decodedPacket.getPacketType()}:\n${prettyBytes}`);
-
-    this.packetProcessor.nextSequence();
-    client.client.write(buffer);
+    console.log(`[Client]:\n${prettyBytes2}`);
   }
 
-  scrapePacket = (packet: Packet) => {
+  scrapePacket = (packet: Packet, client: EOClient) => {
     if (
       !this.packetProcessor.hasEncryption()
       && packet.buffer[0] === PacketAction.Init
